@@ -32,7 +32,7 @@ Do not commit `.env`.
 |---|---|---|
 | `DATABASE_URL` | Docker Postgres from `docker-compose.yml` | Free-tier PostgreSQL connection string |
 | `BETTER_AUTH_SECRET` | Random 32+ character secret | **Different** strong secret per environment |
-| `BETTER_AUTH_URL` | `http://localhost:3000` | Public HTTPS origin, e.g. `https://your-app.vercel.app` |
+| `BETTER_AUTH_URL` | `http://localhost:3000` | Public HTTPS origin: `https://handy-home-tawny.vercel.app` |
 
 Optional (tests only): `TEST_DATABASE_URL`, `E2E_DATABASE_URL`. Optional (LAN phone testing): `DEV_PUBLIC_HOST`.
 

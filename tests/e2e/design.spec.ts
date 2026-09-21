@@ -1,19 +1,26 @@
 import { expect, test } from "@playwright/test";
-
-const noHorizontalOverflow = (page: import("@playwright/test").Page) =>
-  page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+import { pageFitsViewport } from "./overflow";
 
 test.describe("design system: responsive integrity", () => {
-  for (const width of [375, 390, 768, 1024, 1280, 1440]) {
+  for (const width of [375, 390, 393, 430, 768, 1024, 1280, 1440]) {
     test(`public pages do not overflow horizontally at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       for (const path of ["/", "/services", "/services/plumbing", "/professionals", "/search", "/login", "/register"]) {
         await page.goto(path);
         await expect(page.getByRole("main")).toBeVisible();
-        expect(await noHorizontalOverflow(page), `${path} at ${width}px`).toBe(true);
+        expect(await pageFitsViewport(page), `${path} at ${width}px`).toBe(true);
       }
     });
   }
+
+  test("homepage does not include the professional preview section", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Meet local professionals" })).toHaveCount(0);
+    await expect(page.getByText("Profiles with real services, areas and reviews from completed jobs.")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "View all professionals" })).toHaveCount(0);
+    await expect(page.getByRole("search")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "From first search to finished job" })).toBeVisible();
+  });
 
   test("touch targets on the mobile header and primary controls are at least 44px", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });

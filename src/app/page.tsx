@@ -1,13 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
-import { listedProfessionalToCard, ProfessionalCard } from "@/components/ProfessionalCard";
 import { ServiceCard } from "@/components/ServiceCard";
 import { Reveal } from "@/components/motion/Reveal";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { SceneBackdrop } from "@/components/visual/SceneBackdrop";
 import { copy } from "@/content/en";
 import { BRAND_STORY_IMAGE, HERO_IMAGE, POPULAR_SERVICE_SLUGS } from "@/content/media";
-import { listProfessionals } from "@/features/professionals";
 import { listServices } from "@/features/services";
 
 const VALUE_SIGNALS: { icon: IconName; title: string; body: string }[] = [
@@ -32,7 +30,7 @@ const WHY: { title: string; body: string }[] = [
 ];
 
 export default async function HomePage() {
-  const [services, professionals] = await Promise.all([listServices(), listProfessionals({ limit: 6 })]);
+  const services = await listServices();
   const popular = POPULAR_SERVICE_SLUGS.map((slug) => services.find((service) => service.slug === slug)).filter(
     (service): service is NonNullable<typeof service> => Boolean(service),
   );
@@ -55,7 +53,9 @@ export default async function HomePage() {
             <form className="hero-search" action="/search" method="get" role="search">
               <label className="hero-search__field">
                 <span className="sr-only">{copy.heroSearchLabel}</span>
-                <Icon name="search" size={18} />
+                <span className="hero-search__icon" aria-hidden="true">
+                  <Icon name="search" size={18} />
+                </span>
                 <select name="service" defaultValue="">
                   <option value="">{copy.heroSearchLabel}</option>
                   {services.map((service) => (
@@ -182,33 +182,6 @@ export default async function HomePage() {
             </ul>
           )}
         </div>
-      </section>
-
-      <section className="page-width section" aria-labelledby="home-professionals-heading">
-        <div className="section-heading">
-          <div className="section-heading__copy">
-            <p className="eyebrow">{copy.navProfessionals}</p>
-            <h2 id="home-professionals-heading" className="section-title">
-              {copy.trustedNearby}
-            </h2>
-            <p className="lead">{copy.featuredLead}</p>
-          </div>
-          <Link href="/professionals" className="text-link">
-            {copy.allProfessionals}
-            <Icon name="arrow-right" size={16} />
-          </Link>
-        </div>
-        {professionals.length === 0 ? (
-          <p className="empty-state">{copy.emptyProfessionals}</p>
-        ) : (
-          <ul className="pro-grid">
-            {professionals.map((professional) => (
-              <li key={professional.id}>
-                <ProfessionalCard professional={listedProfessionalToCard(professional)} />
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       <section className="scene section-band section-band--soft section" aria-labelledby="why-heading">

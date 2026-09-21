@@ -19,7 +19,7 @@ Repository: `git@github.com:jadkb05/HandyHome.git`
 Do not require paid add-ons. Hobby + a free PostgreSQL tier is the intended demo path.
 
 1. **GitHub** — push this repository to `jadkb05/HandyHome`. In Vercel, import that GitHub repo (framework: Next.js).
-2. **Environment variables** — set `DATABASE_URL`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL` for **Production** and **Preview** (see table below). Preview deployments should use their own `BETTER_AUTH_URL` (or omit it so `https://$VERCEL_URL` is used).
+2. **Environment variables** — set `DATABASE_URL`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL` for **Production** and **Preview** (see table below). Production `BETTER_AUTH_URL` must be `https://handy-home-tawny.vercel.app`. Preview can omit it so `https://$VERCEL_URL` is used; the app also trusts that deployment's Vercel URLs.
 3. **Build** — Vercel runs `npm ci` then `npm run build` (`prisma generate && next build`). `postinstall` also runs `prisma generate`. Migrations are **not** part of the build.
 4. **Prisma migration** — from a trusted machine, once per release:
 
@@ -36,7 +36,7 @@ Do not require paid add-ons. Hobby + a free PostgreSQL tier is the intended demo
 | --- | --- | --- |
 | `DATABASE_URL` | build **and** runtime | PostgreSQL URL. On a pooled provider (Neon, Supabase, …) use the **pooled** URL here. |
 | `BETTER_AUTH_SECRET` | build **and** runtime | 32+ random characters (`openssl rand -base64 32`). Never reuse the local value. Never commit a real secret. |
-| `BETTER_AUTH_URL` | build **and** runtime | Public origin, e.g. `https://handyhome.example.vercel.app`. Falls back to `https://$VERCEL_URL`. |
+| `BETTER_AUTH_URL` | build **and** runtime | Public origin of **this** deployment. Production must be `https://handy-home-tawny.vercel.app` (no trailing slash). Falls back to `https://$VERCEL_URL` if unset. Preview deployments also trust `VERCEL_URL`, `VERCEL_PROJECT_PRODUCTION_URL` and `VERCEL_BRANCH_URL` via `trustedOrigins` — never `"*"`. |
 | `TEST_DATABASE_URL` | Vitest only | Optional. Defaults to a `handyhome_test` database next to `DATABASE_URL`. Never point it at the demo DB. |
 | `E2E_DATABASE_URL` | Playwright only | Optional. Defaults to `handyhome_e2e`. |
 

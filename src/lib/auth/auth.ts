@@ -5,8 +5,8 @@ import { APIError } from "better-auth/api";
 import { getPrisma } from "@/lib/db";
 import { getServerEnv } from "@/lib/env";
 import { UserRole } from "@/lib/auth/types";
-import { developmentOrigins } from "@/lib/dev-origins";
 import { nameSchema, phoneSchema } from "@/lib/auth/validation";
+import { authTrustedOrigins } from "@/lib/auth/trusted-origins";
 import { PROFILE_PLACEHOLDER } from "@/features/professionals/completeness";
 
 const env = getServerEnv();
@@ -17,12 +17,10 @@ export const auth = betterAuth({
   database: prismaAdapter(getPrisma(), {
     provider: "postgresql",
   }),
-  trustedOrigins: Array.from(
-    new Set([
-      env.BETTER_AUTH_URL,
-      ...(env.NODE_ENV === "production" ? [] : developmentOrigins()),
-    ]),
-  ),
+  trustedOrigins: authTrustedOrigins({
+    betterAuthUrl: env.BETTER_AUTH_URL,
+    nodeEnv: env.NODE_ENV,
+  }),
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,

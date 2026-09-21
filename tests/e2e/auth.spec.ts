@@ -68,4 +68,25 @@ test.describe("authentication happy path", () => {
       await prisma.$disconnect();
     }
   });
+
+  test("invalid credentials show a safe error", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("nobody@demo.handyhome.local");
+    await page.getByLabel("Password").fill("WrongPass123!");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByTestId("auth-error")).toHaveText("Invalid email or password.");
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test("duplicate email shows a safe error", async ({ page }) => {
+    await page.goto("/register");
+    await page.getByLabel("Full name").fill("Karim Duplicate");
+    await page.getByLabel("Email").fill("client@demo.handyhome.local");
+    await page.getByLabel("Password").fill("DemoClient123!");
+    await page.getByRole("radio", { name: /I am a Client/ }).check();
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByTestId("auth-error")).toBeVisible();
+    await expect(page.getByTestId("auth-error")).not.toContainText("Invalid origin");
+    await expect(page).toHaveURL(/\/register/);
+  });
 });

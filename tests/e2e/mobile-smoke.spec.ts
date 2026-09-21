@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { pageFitsViewport } from "./overflow";
 
 async function signIn(page: import("@playwright/test").Page, email: string, password: string) {
   await page.goto("/login");
@@ -9,7 +10,9 @@ async function signIn(page: import("@playwright/test").Page, email: string, pass
 }
 
 async function openMobileMenu(page: import("@playwright/test").Page) {
+  const menu = page.locator("details.site-nav-wrap");
   await page.locator("summary.nav-toggle").click();
+  await expect(menu).toHaveAttribute("open", "");
 }
 
 async function signOutMobile(page: import("@playwright/test").Page) {
@@ -18,21 +21,18 @@ async function signOutMobile(page: import("@playwright/test").Page) {
   await expect(page.locator("summary.nav-toggle")).toBeVisible();
 }
 
-function noHorizontalOverflow(page: import("@playwright/test").Page) {
-  return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
-}
-
 test.describe("Phase 11 mobile functional smoke", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test("homepage, search, profile and login stay usable at 390px", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Find local professionals for your home." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Meet local professionals" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Find a professional" }).first()).toBeVisible();
     await openMobileMenu(page);
     const mobileNav = page.locator(".site-nav-wrap");
     await expect(mobileNav.getByRole("link", { name: "Search" })).toBeVisible();
-    expect(await noHorizontalOverflow(page)).toBe(false);
+    expect(await pageFitsViewport(page)).toBe(true);
 
     await mobileNav.getByRole("link", { name: "Search" }).click();
     await expect(page).toHaveURL(/\/search/);
@@ -40,7 +40,7 @@ test.describe("Phase 11 mobile functional smoke", () => {
     await page.getByLabel("Service").selectOption("plumbing");
     await page.getByRole("button", { name: "Search" }).click();
     await expect(page.getByTestId("search-results")).toContainText("Ahmed El Mansouri");
-    expect(await noHorizontalOverflow(page)).toBe(false);
+    expect(await pageFitsViewport(page)).toBe(true);
 
     await page.getByTestId("search-results").getByRole("link", { name: /Ahmed El Mansouri/ }).click();
     await expect(page.getByRole("heading", { name: "Ahmed El Mansouri" })).toBeVisible();
@@ -50,18 +50,19 @@ test.describe("Phase 11 mobile functional smoke", () => {
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
-    expect(await noHorizontalOverflow(page)).toBe(false);
+    expect(await pageFitsViewport(page)).toBe(true);
 
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Find local professionals for your home." })).toBeVisible();
-    expect(await noHorizontalOverflow(page)).toBe(false);
+    await expect(page.getByRole("search")).toBeVisible();
+    expect(await pageFitsViewport(page)).toBe(true);
   });
 
   test("client dashboard and booking form are usable at 390px", async ({ page }) => {
     await signIn(page, "client@demo.handyhome.local", "DemoClient123!");
     await expect(page.getByRole("heading", { name: "Client dashboard" })).toBeVisible();
-    expect(await noHorizontalOverflow(page)).toBe(false);
+    expect(await pageFitsViewport(page)).toBe(true);
 
     await page.goto("/professionals");
     await page.getByRole("link", { name: /Ahmed El Mansouri/ }).click();
@@ -69,11 +70,26 @@ test.describe("Phase 11 mobile functional smoke", () => {
     await expect(page.getByTestId("booking-form")).toBeVisible();
     await expect(page.getByTestId("booking-services").getByRole("radio", { name: "Plumbing" })).toBeVisible();
     await expect(page.getByTestId("booking-slots").locator("label").first()).toBeVisible();
-    expect(await noHorizontalOverflow(page)).toBe(false);
+    expect(await pageFitsViewport(page)).toBe(true);
 
     await signOutMobile(page);
     await signIn(page, "ahmed@demo.handyhome.local", "DemoProAhmed123!");
     await expect(page.getByRole("heading", { name: "Professional dashboard" })).toBeVisible();
-    expect(await noHorizontalOverflow(page)).toBe(false);
+    expect(await pageFitsViewport(page)).toBe(true);
+  });
+
+  test("register and login forms fit 375px", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/register");
+    await expect(page.getByLabel("Full name")).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Password")).toBeVisible();
+    await expect(page.getByRole("radio", { name: /I am a Client/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
+    expect(await pageFitsViewport(page)).toBe(true);
+
+    await page.goto("/login");
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+    expect(await pageFitsViewport(page)).toBe(true);
   });
 });
