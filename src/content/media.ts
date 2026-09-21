@@ -12,6 +12,14 @@ export const BRAND_STORY_IMAGE = {
   height: 592,
 } as const;
 
+/** Product-owner artisan illustration used on authentication marketing panels. */
+export const AUTH_ARTISAN_IMAGE = {
+  src: "/images/auth/handyhome-artisan.jpg",
+  alt: "Illustrated HandyHome professional holding a wrench",
+  width: 1024,
+  height: 963,
+} as const;
+
 export const SERVICE_MEDIA: Record<string, { src: string; alt: string }> = {
   plumbing: { src: "/images/services/plumbing.jpg", alt: "Plumbing repair at a home sink" },
   electrical: { src: "/images/services/electrical.jpg", alt: "Electrical installation work" },

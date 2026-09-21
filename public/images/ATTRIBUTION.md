@@ -15,6 +15,12 @@ Product-owner assets stored as:
 - `public/images/home/handyhome-hero-services.jpeg`
 - `public/images/home/handyhome-superhero.jpeg`
 
+## Official authentication illustration
+
+Product-owner asset stored as:
+
+- `public/images/auth/handyhome-artisan.jpg`
+
 ## Pexels
 
 License: Pexels License (https://www.pexels.com/license/)

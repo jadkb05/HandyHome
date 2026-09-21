@@ -4,7 +4,14 @@ export {
   listOpenSlotsForProvider,
   offeredBookingServices,
 } from "@/features/bookings/create";
-export { generateOpenSlots, groupSlotsByDay, SLOT_INTERVAL_MINUTES, SLOT_HORIZON_DAYS } from "@/features/bookings/slots";
+export {
+  generateOpenSlots,
+  groupSlotsByDay,
+  hasOpenSlotOnCivilDate,
+  SLOT_INTERVAL_MINUTES,
+  SLOT_HORIZON_DAYS,
+} from "@/features/bookings/slots";
+export { occupyingScheduledTimes } from "@/features/bookings/occupancy";
 export { respondToBookingForIdentity } from "@/features/bookings/transitions";
 export {
   listBookingsForClient,

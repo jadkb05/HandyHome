@@ -14,6 +14,7 @@ import {
   type SearchProfessional,
 } from "@/features/search";
 import { listServices } from "@/features/services";
+import { formatCivilDateLong } from "@/lib/datetime";
 
 export const metadata: Metadata = {
   title: copy.searchTitle,
@@ -23,7 +24,14 @@ type SearchPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function resultCountLabel(count: number): string {
+function resultCountLabel(count: number, date?: string): string {
+  if (date) {
+    const formatted = formatCivilDateLong(date);
+    if (count === 1) {
+      return copy.searchCountOneOnDate.replace("{date}", formatted);
+    }
+    return copy.searchCountManyOnDate.replace("{count}", String(count)).replace("{date}", formatted);
+  }
   if (count === 1) {
     return copy.searchCountOne;
   }
@@ -83,7 +91,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           filters={filters}
           services={services.map((service) => ({ slug: service.slug, name: service.name }))}
           cities={locations.cities}
-          neighborhoods={locations.neighborhoods}
         />
         <UseMyLocationButton filters={filters} />
       </section>
@@ -94,14 +101,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         </p>
       ) : professionals.length === 0 ? (
         <div data-testid="search-empty">
-          <EmptyState hint={copy.searchEmptyHint} action={{ href: "/search", label: copy.clearFilters }}>
-            {copy.searchEmpty}
+          <EmptyState
+            hint={filters.date ? copy.searchEmptyHintOnDate : copy.searchEmptyHint}
+            action={{ href: "/search", label: copy.clearFilters }}
+          >
+            {filters.date ? copy.searchEmptyOnDate : copy.searchEmpty}
           </EmptyState>
         </div>
       ) : (
         <p className="search-count" data-testid="search-count">
           <Icon name="pin" size={20} />
-          {resultCountLabel(professionals.length)}
+          {resultCountLabel(professionals.length, filters.date)}
         </p>
       )}
       {!queryFailed && professionals.length > 0 ? (

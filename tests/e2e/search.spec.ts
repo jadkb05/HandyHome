@@ -1,4 +1,24 @@
 import { expect, test, type Page } from "@playwright/test";
+import { SLOT_HORIZON_DAYS } from "../../src/features/bookings/slots";
+import {
+  addCivilDays,
+  civilDateInBusinessTimezone,
+  formatCivilDateLong,
+  weekdayFromCivilDate,
+} from "../../src/lib/datetime";
+import { pageFitsViewport } from "./overflow";
+
+function searchDateOnWeekday(weekday: number): string {
+  const today = civilDateInBusinessTimezone(new Date());
+  const dates: string[] = [];
+  for (let offset = 0; offset < SLOT_HORIZON_DAYS; offset += 1) {
+    const date = addCivilDays(today, offset);
+    if (weekdayFromCivilDate(date) === weekday) {
+      dates.push(date);
+    }
+  }
+  return dates[1] ?? dates[0]!;
+}
 
 const EMPTY_STYLE = {
   version: 8,
@@ -37,6 +57,9 @@ test.describe("Phase 5 search and map", () => {
     await page.goto("/search");
     await expect(page.getByRole("heading", { name: "Find a professional" })).toBeVisible();
     await expect(page.getByTestId("search-form")).toBeVisible();
+    await expect(page.getByLabel("Date")).toBeVisible();
+    await expect(page.getByText("Any date")).toBeVisible();
+    await expect(page.getByLabel("Neighborhood")).toHaveCount(0);
     await expect(page.getByText("E2E Professional")).toHaveCount(0);
   });
 
@@ -144,5 +167,90 @@ test.describe("Phase 5 search and map", () => {
     await expect(page.locator('[data-testid="map-marker"][aria-label="Ahmed El Mansouri"]')).toBeVisible({
       timeout: 15_000,
     });
+  });
+
+  test("search without a date keeps current plumbing results", async ({ page }) => {
+    await page.goto("/search?service=plumbing");
+    await expect(page.getByTestId("search-results")).toContainText("Ahmed El Mansouri");
+    await expect(page.getByTestId("search-count")).toContainText("professional");
+    await expect(page.getByTestId("search-count")).not.toContainText("available on");
+  });
+
+  test("search with service and date keeps the date in the URL", async ({ page }) => {
+    const monday = searchDateOnWeekday(1);
+    await page.goto("/search");
+    await page.getByLabel("Service").selectOption("plumbing");
+    await page.getByTestId("search-date").fill(monday);
+    await page.getByRole("button", { name: "Search" }).click();
+
+    await expect(page).toHaveURL(new RegExp(`service=plumbing`));
+    await expect(page).toHaveURL(new RegExp(`date=${monday}`));
+    await expect(page.getByTestId("search-date")).toHaveValue(monday);
+    await expect(page.getByTestId("search-results")).toContainText("Ahmed El Mansouri");
+    await expect(page.getByTestId("search-results")).not.toContainText("Sara Amrani");
+    await expect(page.getByTestId("search-count")).toContainText(
+      `available on ${formatCivilDateLong(monday)}`,
+    );
+  });
+
+  test("search with city and date", async ({ page }) => {
+    const monday = searchDateOnWeekday(1);
+    await page.goto(`/search?city=Casablanca&date=${monday}`);
+    await expect(page.getByTestId("search-results")).toContainText("Ahmed El Mansouri");
+    await expect(page.getByTestId("search-results")).not.toContainText("Sara Amrani");
+  });
+
+  test("search with service, city and date", async ({ page }) => {
+    const monday = searchDateOnWeekday(1);
+    await page.goto(`/search?service=plumbing&city=Casablanca&date=${monday}&sort=name`);
+    await expect(page).toHaveURL(new RegExp(`date=${monday}`));
+    await expect(page.getByTestId("search-results")).toContainText("Ahmed El Mansouri");
+    await expect(page.getByTestId("search-results")).not.toContainText("Sara Amrani");
+    await expect(page.getByTestId("search-count")).toContainText("1 professional available on");
+  });
+
+  test("invalid date is rejected safely", async ({ page }) => {
+    await page.goto("/search?date=not-a-date");
+    await expect(page.getByRole("alert")).toContainText("Those search filters could not be used.");
+    await page.goto("/search?date=1999-01-01");
+    await expect(page.getByRole("alert")).toContainText("Those search filters could not be used.");
+  });
+
+  test("professionals without a slot on the selected date are excluded", async ({ page }) => {
+    const tuesday = searchDateOnWeekday(2);
+    await page.goto(`/search?service=plumbing&date=${tuesday}`);
+    await expect(page.getByTestId("search-empty")).toContainText("No professionals available on that date.");
+    await expect(page.getByTestId("search-results")).toHaveCount(0);
+  });
+
+  test("map markers follow date-filtered professionals", async ({ page }) => {
+    const monday = searchDateOnWeekday(1);
+    await page.goto(`/search?service=plumbing&city=Casablanca&date=${monday}`);
+    await expect(page.getByTestId("search-map")).toBeVisible();
+    await expect(page.locator('[data-testid="map-marker"][aria-label="Ahmed El Mansouri"]')).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator('[data-testid="map-marker"][aria-label="Sara Amrani"]')).toHaveCount(0);
+  });
+
+  test("mobile search filters fit without horizontal overflow", async ({ page }) => {
+    const monday = searchDateOnWeekday(1);
+    const viewports = [
+      { width: 375, height: 812 },
+      { width: 390, height: 844 },
+      { width: 393, height: 852 },
+      { width: 430, height: 932 },
+    ];
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await page.goto(`/search?service=plumbing&city=Casablanca&date=${monday}&sort=name`);
+      await expect(page.getByTestId("search-form")).toBeVisible();
+      await expect(page.getByLabel("Service")).toBeVisible();
+      await expect(page.getByLabel("City")).toBeVisible();
+      await expect(page.getByLabel("Date")).toBeVisible();
+      await expect(page.getByLabel("Sort")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Search" })).toBeVisible();
+      expect(await pageFitsViewport(page)).toBe(true);
+    }
   });
 });

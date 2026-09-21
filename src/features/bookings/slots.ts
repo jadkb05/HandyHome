@@ -114,6 +114,20 @@ export function slotIsOpen(slots: AppointmentSlot[], scheduledAt: Date): boolean
   return slots.some((slot) => slot.scheduledAt.getTime() === target);
 }
 
+/** True when generateOpenSlots would offer at least one appointment on that civil date. */
+export function hasOpenSlotOnCivilDate(input: {
+  availability: AvailabilityWindow[];
+  occupied: Date[];
+  civilDate: string;
+  now?: Date;
+}): boolean {
+  return generateOpenSlots({
+    availability: input.availability,
+    occupied: input.occupied,
+    now: input.now,
+  }).some((slot) => slot.civilDate === input.civilDate);
+}
+
 export const SLOT_OCCUPYING_STATUSES: BookingStatus[] = [
   BookingStatus.REQUESTED,
   BookingStatus.ACCEPTED,

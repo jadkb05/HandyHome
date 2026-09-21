@@ -81,4 +81,41 @@ test.describe("design system: responsive integrity", () => {
     await expect(summary).toHaveAttribute("data-ready", "true");
     await expect(summary).toContainText("Plumbing");
   });
+
+  test("auth marketing panel shows the artisan beside the desktop form", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/login");
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByText("Home services, made simple.")).toBeVisible();
+    await expect(page.getByText("Compare local professionals")).toBeVisible();
+    await expect(page.getByTestId("auth-artisan").locator("img")).toBeVisible();
+    expect(await pageFitsViewport(page)).toBe(true);
+
+    await page.goto("/register");
+    await expect(page.getByRole("heading", { name: "Create an account" })).toBeVisible();
+    await expect(page.getByLabel("Full name")).toBeVisible();
+    await expect(page.getByTestId("auth-artisan").locator("img")).toBeVisible();
+    expect(await pageFitsViewport(page)).toBe(true);
+  });
+
+  test("auth artisan stays compact and does not overflow on phones", async ({ page }) => {
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 390, height: 844 },
+      { width: 393, height: 852 },
+      { width: 430, height: 932 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const path of ["/login", "/register"] as const) {
+        await page.goto(path);
+        await expect(page.getByTestId("auth-artisan")).toBeVisible();
+        const asideBox = await page.locator(".auth-aside").boundingBox();
+        expect(asideBox?.height ?? 999, `${path} aside at ${viewport.width}px`).toBeLessThan(220);
+        await expect(page.getByLabel("Email")).toBeVisible();
+        await expect(page.locator(".auth-card")).toBeVisible();
+        expect(await pageFitsViewport(page), `${path} at ${viewport.width}px`).toBe(true);
+      }
+    }
+  });
 });

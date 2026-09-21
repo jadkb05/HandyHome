@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from "@prisma/client";
+import { BookingStatus, PrismaClient, UserRole } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   InvalidSearchParamsError,
@@ -7,6 +7,7 @@ import {
   searchProfessionals,
 } from "@/features/search";
 import { formatDistanceKm, haversineKm, toMapMarkers } from "@/lib/maps";
+import { zonedCivilToUtc } from "@/lib/datetime";
 
 const prisma = new PrismaClient();
 const suffix = `ph5-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -18,12 +19,37 @@ const ids = {
   providerA: "",
   providerB: "",
   providerC: "",
+  client: "",
 };
 
 const NEAR = { latitude: 33.57311, longitude: -7.58984 };
 const FAR = { latitude: 33.5892, longitude: -7.6033 };
+const frozenNow = new Date("2026-10-04T12:00:00.000Z");
+const MONDAY = "2026-10-05";
+const TUESDAY = "2026-10-06";
+
+const mondayWindows = {
+  dayOfWeek: 1,
+  startTime: new Date("1970-01-01T08:00:00.000Z"),
+  endTime: new Date("1970-01-01T16:00:00.000Z"),
+  active: true,
+};
+const tuesdayWindows = {
+  dayOfWeek: 2,
+  startTime: new Date("1970-01-01T09:00:00.000Z"),
+  endTime: new Date("1970-01-01T17:00:00.000Z"),
+  active: true,
+};
 
 async function cleanup() {
+  await prisma.booking.deleteMany({
+    where: {
+      OR: [
+        { provider: { user: { email: { contains: suffix } } } },
+        { client: { email: { contains: suffix } } },
+      ],
+    },
+  });
   await prisma.providerService.deleteMany({
     where: { provider: { user: { email: { contains: suffix } } } },
   });
@@ -65,6 +91,7 @@ beforeAll(async () => {
           longitude: NEAR.longitude,
           verified: false,
           services: { create: { serviceId: plumbing.id } },
+          availability: { create: mondayWindows },
         },
       },
     },
@@ -87,6 +114,7 @@ beforeAll(async () => {
           longitude: FAR.longitude,
           verified: true,
           services: { create: { serviceId: plumbing.id } },
+          availability: { create: tuesdayWindows },
         },
       },
     },
@@ -113,6 +141,16 @@ beforeAll(async () => {
     include: { provider: true },
   });
   ids.providerC = proC.provider!.id;
+
+  const client = await prisma.user.create({
+    data: {
+      name: "PH5 Client",
+      email: `client-${suffix}@test.handyhome.local`,
+      passwordHash: hash,
+      role: UserRole.CLIENT,
+    },
+  });
+  ids.client = client.id;
 });
 
 afterAll(async () => {
@@ -227,6 +265,18 @@ describe("Phase 5 search, filters, and distance", () => {
     expect(() => parseSearchParams({ lat: "200", lng: "0" })).toThrow(InvalidSearchParamsError);
     expect(() => parseSearchParams({ sort: "relevance" })).toThrow(InvalidSearchParamsError);
     expect(() => parseSearchParams({ verified: "yes" })).toThrow(InvalidSearchParamsError);
+    expect(() => parseSearchParams({ date: "not-a-date" }, { now: frozenNow })).toThrow(
+      InvalidSearchParamsError,
+    );
+    expect(() => parseSearchParams({ date: "2026-13-40" }, { now: frozenNow })).toThrow(
+      InvalidSearchParamsError,
+    );
+    expect(() => parseSearchParams({ date: "2026-10-03" }, { now: frozenNow })).toThrow(
+      InvalidSearchParamsError,
+    );
+    expect(() => parseSearchParams({ date: "2026-10-18" }, { now: frozenNow })).toThrow(
+      InvalidSearchParamsError,
+    );
   });
 
   it("PH12: a Paris origin without radius still returns Casablanca professionals", async () => {
@@ -244,5 +294,120 @@ describe("Phase 5 search, filters, and distance", () => {
     expect(markers).toHaveLength(2);
     expect(markers.every((marker) => marker.point.latitude > 33 && marker.point.latitude < 34)).toBe(true);
     expect(markers.every((marker) => marker.point.longitude < -7 && marker.point.longitude > -8)).toBe(true);
+  });
+
+  it("search without a date keeps existing service and city results", async () => {
+    const results = await searchProfessionals(
+      parseSearchParams({ service: `plumbing-${suffix}`, city: `Casa-${suffix}` }, { now: frozenNow }),
+      { now: frozenNow },
+    );
+    expect(results.map((item) => item.id).sort()).toEqual([ids.providerA, ids.providerB].sort());
+  });
+
+  it("search with a date returns only professionals with an open slot that day", async () => {
+    const monday = await searchProfessionals(parseSearchParams({ date: MONDAY }, { now: frozenNow }), {
+      now: frozenNow,
+    });
+    const mondayIds = monday.map((item) => item.id);
+    expect(mondayIds).toContain(ids.providerA);
+    expect(mondayIds).not.toContain(ids.providerB);
+    expect(mondayIds).not.toContain(ids.providerC);
+
+    const tuesday = await searchProfessionals(parseSearchParams({ date: TUESDAY }, { now: frozenNow }), {
+      now: frozenNow,
+    });
+    const tuesdayIds = tuesday.map((item) => item.id);
+    expect(tuesdayIds).toContain(ids.providerB);
+    expect(tuesdayIds).not.toContain(ids.providerA);
+    expect(tuesdayIds).not.toContain(ids.providerC);
+  });
+
+  it("search with service and date", async () => {
+    const results = await searchProfessionals(
+      parseSearchParams({ service: `plumbing-${suffix}`, date: MONDAY }, { now: frozenNow }),
+      { now: frozenNow },
+    );
+    expect(results.map((item) => item.id)).toEqual([ids.providerA]);
+  });
+
+  it("search with city and date", async () => {
+    const results = await searchProfessionals(
+      parseSearchParams({ city: `Casa-${suffix}`, date: TUESDAY }, { now: frozenNow }),
+      { now: frozenNow },
+    );
+    expect(results.map((item) => item.id)).toEqual([ids.providerB]);
+  });
+
+  it("search with service, city and date", async () => {
+    const results = await searchProfessionals(
+      parseSearchParams(
+        { service: `plumbing-${suffix}`, city: `Casa-${suffix}`, date: MONDAY },
+        { now: frozenNow },
+      ),
+      { now: frozenNow },
+    );
+    expect(results.map((item) => item.id)).toEqual([ids.providerA]);
+    expect(results[0]?.neighborhood).toBe(`Maarif-${suffix}`);
+  });
+
+  it("preserves a valid date in parsed URL state", () => {
+    const filters = parseSearchParams(
+      { service: `plumbing-${suffix}`, city: `Casa-${suffix}`, date: MONDAY, sort: "name" },
+      { now: frozenNow },
+    );
+    expect(filters).toMatchObject({
+      service: `plumbing-${suffix}`,
+      city: `Casa-${suffix}`,
+      date: MONDAY,
+      sort: "name",
+    });
+  });
+
+  it("excludes a professional with no availability on the selected date", async () => {
+    const results = await searchProfessionals(
+      parseSearchParams({ service: `cleaning-${suffix}`, date: MONDAY }, { now: frozenNow }),
+      { now: frozenNow },
+    );
+    expect(results.map((item) => item.id)).toEqual([]);
+  });
+
+  it("excludes a professional whose remaining slots that day are occupied", async () => {
+    const clocks = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
+    await prisma.booking.createMany({
+      data: clocks.map((clock) => ({
+        clientId: ids.client,
+        providerId: ids.providerA,
+        serviceId: ids.plumbing,
+        scheduledAt: zonedCivilToUtc(MONDAY, clock),
+        status: BookingStatus.REQUESTED,
+      })),
+    });
+
+    const occupied = await searchProfessionals(
+      parseSearchParams({ service: `plumbing-${suffix}`, date: MONDAY }, { now: frozenNow }),
+      { now: frozenNow },
+    );
+    expect(occupied.map((item) => item.id)).toEqual([]);
+
+    await prisma.booking.updateMany({
+      where: { providerId: ids.providerA },
+      data: { status: BookingStatus.REJECTED },
+    });
+
+    const afterReject = await searchProfessionals(
+      parseSearchParams({ service: `plumbing-${suffix}`, date: MONDAY }, { now: frozenNow }),
+      { now: frozenNow },
+    );
+    expect(afterReject.map((item) => item.id)).toEqual([ids.providerA]);
+  });
+
+  it("map markers match only professionals returned for the selected date", async () => {
+    const results = await searchProfessionals(
+      parseSearchParams({ city: `Casa-${suffix}`, date: MONDAY }, { now: frozenNow }),
+      { now: frozenNow },
+    );
+    expect(results.map((item) => item.id)).toEqual([ids.providerA]);
+    expect(searchMarkers(results).map((marker) => marker.id)).toEqual([ids.providerA]);
+    expect(searchMarkers(results).every((marker) => marker.label === "PH5 Ahmed")).toBe(true);
   });
 });

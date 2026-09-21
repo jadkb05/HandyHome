@@ -33,6 +33,9 @@ export function UseMyLocationButton({ filters }: UseMyLocationButtonProps) {
         if (filters.neighborhood) {
           params.set("neighborhood", filters.neighborhood);
         }
+        if (filters.date) {
+          params.set("date", filters.date);
+        }
         if (filters.verified) {
           params.set("verified", "1");
         }

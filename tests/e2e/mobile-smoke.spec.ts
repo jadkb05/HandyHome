@@ -50,6 +50,7 @@ test.describe("Phase 11 mobile functional smoke", () => {
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByTestId("auth-artisan")).toBeVisible();
     expect(await pageFitsViewport(page)).toBe(true);
 
     await page.setViewportSize({ width: 375, height: 812 });
@@ -86,10 +87,12 @@ test.describe("Phase 11 mobile functional smoke", () => {
     await expect(page.getByLabel("Password")).toBeVisible();
     await expect(page.getByRole("radio", { name: /I am a Client/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
+    await expect(page.getByTestId("auth-artisan")).toBeVisible();
     expect(await pageFitsViewport(page)).toBe(true);
 
     await page.goto("/login");
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByTestId("auth-artisan")).toBeVisible();
     expect(await pageFitsViewport(page)).toBe(true);
   });
 });

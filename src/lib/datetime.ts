@@ -148,6 +148,17 @@ export function isValidCivilDate(value: string): boolean {
   }
 }
 
+/** Long month, day, and year for a YYYY-MM-DD civil date, independent of host timezone. */
+export function formatCivilDateLong(isoDate: string, locale = "en-US"): string {
+  const parsed = parseCivilDate(isoDate);
+  return new Intl.DateTimeFormat(locale, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day)));
+}
+
 /** Day number and short month for a date-block, in the business timezone. */
 export function dayAndMonthInBusinessTimezone(date: Date): { day: string; month: string } {
   const day = new Intl.DateTimeFormat("en-GB", { timeZone: BUSINESS_TIMEZONE, day: "numeric" }).format(date);

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { SLOT_HORIZON_DAYS } from "@/features/bookings/slots";
+import { addCivilDays, civilDateInBusinessTimezone, isValidCivilDate } from "@/lib/datetime";
 
 const optionalText = z
   .string()
@@ -6,6 +8,14 @@ const optionalText = z
   .max(80)
   .optional()
   .transform((value) => (value ? value : undefined));
+
+const optionalDate = z
+  .string()
+  .trim()
+  .max(10)
+  .optional()
+  .transform((value) => (value ? value : undefined))
+  .refine((value) => value === undefined || isValidCivilDate(value), "Date must be a valid calendar day.");
 
 export const searchParamsSchema = z.object({
   service: z
@@ -17,6 +27,7 @@ export const searchParamsSchema = z.object({
     .transform((value) => (value ? value : undefined)),
   city: optionalText,
   neighborhood: optionalText,
+  date: optionalDate,
   verified: z
     .enum(["", "1", "true", "false", "0"])
     .optional()
@@ -36,7 +47,20 @@ export class InvalidSearchParamsError extends Error {
   }
 }
 
-export function parseSearchParams(input: Record<string, string | string[] | undefined>): SearchFilters {
+export type SearchDateWindow = {
+  min: string;
+  max: string;
+};
+
+export function searchDateWindow(now = new Date()): SearchDateWindow {
+  const min = civilDateInBusinessTimezone(now);
+  return { min, max: addCivilDays(min, SLOT_HORIZON_DAYS - 1) };
+}
+
+export function parseSearchParams(
+  input: Record<string, string | string[] | undefined>,
+  options?: { now?: Date },
+): SearchFilters {
   const flattened: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(input)) {
     flattened[key] = Array.isArray(value) ? value[0] : value;
@@ -46,6 +70,7 @@ export function parseSearchParams(input: Record<string, string | string[] | unde
     service: flattened.service,
     city: flattened.city,
     neighborhood: flattened.neighborhood,
+    date: flattened.date,
     verified: flattened.verified ?? "",
     sort: flattened.sort || "name",
     lat: flattened.lat || undefined,
@@ -61,5 +86,13 @@ export function parseSearchParams(input: Record<string, string | string[] | unde
   if ((filters.lat == null) !== (filters.lng == null)) {
     throw new InvalidSearchParamsError("Location needs both latitude and longitude.");
   }
+
+  if (filters.date) {
+    const window = searchDateWindow(options?.now ?? new Date());
+    if (filters.date < window.min || filters.date > window.max) {
+      throw new InvalidSearchParamsError("Those search filters could not be used.");
+    }
+  }
+
   return filters;
 }

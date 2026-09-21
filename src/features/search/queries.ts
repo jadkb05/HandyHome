@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 import { boundingBox, haversineKm } from "@/lib/maps/distance";
 import { toMapMarkers } from "@/lib/maps/adapter";
+import { occupyingScheduledTimes } from "@/features/bookings/occupancy";
+import { hasOpenSlotOnCivilDate } from "@/features/bookings/slots";
 import { reviewSummariesFor, summaryOrEmpty } from "@/features/reviews/summary";
 import { publicProviderWhere } from "@/features/professionals/completeness";
 import type { SearchFilters } from "@/features/search/validation";
@@ -32,11 +34,41 @@ function toNumber(value: Prisma.Decimal | null): number | null {
   return Number(value);
 }
 
-export async function searchProfessionals(filters: SearchFilters): Promise<SearchProfessional[]> {
+async function providerIdsWithOpenSlotOnDate(
+  providers: Array<{
+    id: string;
+    availability: Array<{ dayOfWeek: number; startTime: Date; endTime: Date; active: boolean }>;
+  }>,
+  civilDate: string,
+  now: Date,
+): Promise<Set<string>> {
+  const occupiedByProvider = await occupyingScheduledTimes(providers.map((provider) => provider.id));
+  const available = new Set<string>();
+  for (const provider of providers) {
+    if (
+      hasOpenSlotOnCivilDate({
+        availability: provider.availability,
+        occupied: occupiedByProvider.get(provider.id) ?? [],
+        civilDate,
+        now,
+      })
+    ) {
+      available.add(provider.id);
+    }
+  }
+  return available;
+}
+
+export async function searchProfessionals(
+  filters: SearchFilters,
+  options?: { now?: Date },
+): Promise<SearchProfessional[]> {
   const origin =
     filters.lat != null && filters.lng != null
       ? { latitude: filters.lat, longitude: filters.lng }
       : null;
+  const now = options?.now ?? new Date();
+  const filterByDate = Boolean(filters.date);
 
   const where: Prisma.ProviderWhereInput = { ...publicProviderWhere };
 
@@ -68,13 +100,12 @@ export async function searchProfessionals(filters: SearchFilters): Promise<Searc
     ];
   }
 
-  // Distance ranking and radius filtering happen after the query, so the row
-  // limit may only be applied in the database when neither is in play.
-  // Otherwise a "nearest" search would rank just the first alphabetical rows.
+  // Distance ranking, radius, and date availability are applied after the query,
+  // so the row limit is only used in the database when none of those are in play.
   const rankByDistance = origin != null && (filters.sort === "nearest" || filters.radius != null);
   const rows = await getPrisma().provider.findMany({
     where,
-    take: rankByDistance ? undefined : SEARCH_RESULT_LIMIT,
+    take: rankByDistance || filterByDate ? undefined : SEARCH_RESULT_LIMIT,
     select: {
       id: true,
       profession: true,
@@ -85,9 +116,18 @@ export async function searchProfessionals(filters: SearchFilters): Promise<Searc
       verified: true,
       user: { select: { name: true, image: true } },
       services: { select: { service: { select: { slug: true, name: true } } } },
+      availability: { where: { active: true } },
     },
     orderBy: [{ user: { name: "asc" } }, { id: "asc" }],
   });
+
+  const availableIds = filterByDate
+    ? await providerIdsWithOpenSlotOnDate(
+        rows.map((row) => ({ id: row.id, availability: row.availability })),
+        filters.date!,
+        now,
+      )
+    : null;
 
   const summaries = await reviewSummariesFor(rows.map((row) => row.id));
   const mapped: SearchProfessional[] = rows.map((row) => {
@@ -116,12 +156,15 @@ export async function searchProfessionals(filters: SearchFilters): Promise<Searc
     };
   });
 
-  const filtered =
+  const afterRadius =
     origin && filters.radius
       ? mapped.filter(
           (item) => item.distanceKm == null || item.distanceKm <= (filters.radius as number),
         )
       : mapped;
+  const filtered = availableIds
+    ? afterRadius.filter((item) => availableIds.has(item.id))
+    : afterRadius;
 
   const useNearest = filters.sort === "nearest" && origin != null;
 

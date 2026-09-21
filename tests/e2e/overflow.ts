@@ -25,6 +25,7 @@ export function pageFitsViewport(page: Page) {
       ".hero-search",
       ".pro-card",
       ".auth-card",
+      ".auth-aside",
       ".assistant-panel",
       ".assistant-trigger",
       ".site-header",

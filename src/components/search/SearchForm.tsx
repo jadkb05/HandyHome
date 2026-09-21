@@ -1,14 +1,15 @@
 import { copy } from "@/content/en";
-import type { SearchFilters } from "@/features/search";
+import { searchDateWindow, type SearchFilters } from "@/features/search";
 
 type SearchFormProps = {
   filters: SearchFilters;
   services: { slug: string; name: string }[];
   cities: string[];
-  neighborhoods: string[];
 };
 
-export function SearchForm({ filters, services, cities, neighborhoods }: SearchFormProps) {
+export function SearchForm({ filters, services, cities }: SearchFormProps) {
+  const dates = searchDateWindow();
+
   return (
     <form className="search-form" method="get" action="/search" data-testid="search-form">
       <label className="field">
@@ -38,19 +39,19 @@ export function SearchForm({ filters, services, cities, neighborhoods }: SearchF
         </datalist>
       </label>
       <label className="field">
-        <span>{copy.searchNeighborhood}</span>
+        <span>{copy.searchDate}</span>
         <input
-          type="text"
-          name="neighborhood"
-          defaultValue={filters.neighborhood ?? ""}
-          list="search-neighborhoods"
-          autoComplete="address-level3"
+          type="date"
+          name="date"
+          defaultValue={filters.date ?? ""}
+          min={dates.min}
+          max={dates.max}
+          aria-describedby="search-date-hint"
+          data-testid="search-date"
         />
-        <datalist id="search-neighborhoods">
-          {neighborhoods.map((neighborhood) => (
-            <option key={neighborhood} value={neighborhood} />
-          ))}
-        </datalist>
+        <span id="search-date-hint" className="field-hint">
+          {copy.searchAnyDate}
+        </span>
       </label>
       <label className="field">
         <span>{copy.searchSort}</span>

@@ -4,7 +4,8 @@ import { UserRole, type AuthIdentity } from "@/lib/auth/types";
 import { getPrisma } from "@/lib/db";
 import { isProfilePublic } from "@/features/professionals/completeness";
 import { BookingError } from "@/features/bookings/errors";
-import { generateOpenSlots, SLOT_OCCUPYING_STATUSES, slotIsOpen } from "@/features/bookings/slots";
+import { occupyingScheduledTimes } from "@/features/bookings/occupancy";
+import { generateOpenSlots, slotIsOpen } from "@/features/bookings/slots";
 import type { OfferedBookingService } from "@/features/bookings/types";
 import { createBookingInputSchema } from "@/features/bookings/validation";
 
@@ -87,17 +88,8 @@ export function offeredBookingServices(
 }
 
 async function occupiedTimes(providerId: string): Promise<Date[]> {
-  const rows = await getPrisma().booking.findMany({
-    where: {
-      providerId,
-      scheduledAt: { not: null },
-      status: { in: SLOT_OCCUPYING_STATUSES },
-    },
-    select: { scheduledAt: true },
-  });
-  return rows
-    .map((row) => row.scheduledAt)
-    .filter((value): value is Date => value instanceof Date);
+  const occupied = await occupyingScheduledTimes([providerId]);
+  return occupied.get(providerId) ?? [];
 }
 
 export async function listOpenSlotsForProvider(providerId: string, now = new Date()) {
