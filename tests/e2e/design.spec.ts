@@ -118,4 +118,81 @@ test.describe("design system: responsive integrity", () => {
       }
     }
   });
+
+  test("mobile homepage hero places the visual between the description and search", async ({ page }) => {
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 390, height: 844 },
+      { width: 393, height: 852 },
+      { width: 430, height: 932 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await expect(page.locator(".hero__visual")).toBeVisible();
+      await expect(page.getByRole("search")).toBeVisible();
+      const tops = await page.evaluate(() => {
+        const top = (selector: string) => document.querySelector(selector)?.getBoundingClientRect().top ?? 0;
+        const box = (selector: string) => {
+          const el = document.querySelector(selector);
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
+        };
+        const overlap = (
+          a: { top: number; bottom: number; left: number; right: number } | null,
+          b: { top: number; bottom: number; left: number; right: number } | null,
+        ) => Boolean(a && b && !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom));
+        const visualBox = box(".hero__visual");
+        const searchBox = box(".hero-search");
+        const searchButtonBox = box(".hero-search .button");
+        const assistantBox = box(".assistant-trigger");
+        return {
+          kicker: top(".hero__kicker"),
+          title: top(".hero__title"),
+          lead: top(".hero__lead"),
+          visual: top(".hero__visual"),
+          search: top(".hero-search"),
+          links: top(".hero__links"),
+          visualBox,
+          searchBox,
+          searchAssistantOverlap: overlap(searchButtonBox, assistantBox),
+        };
+      });
+      expect(tops.kicker, `kicker at ${viewport.width}px`).toBeLessThan(tops.title);
+      expect(tops.title, `title at ${viewport.width}px`).toBeLessThan(tops.lead);
+      expect(tops.lead, `lead at ${viewport.width}px`).toBeLessThan(tops.visual);
+      expect(tops.visual, `visual at ${viewport.width}px`).toBeLessThan(tops.search);
+      expect(tops.search, `search at ${viewport.width}px`).toBeLessThan(tops.links);
+      expect(tops.visualBox && tops.searchBox, `no overlap at ${viewport.width}px`).toBeTruthy();
+      expect(tops.visualBox!.bottom, `visual above search at ${viewport.width}px`).toBeLessThanOrEqual(
+        tops.searchBox!.top + 1,
+      );
+      expect(tops.searchAssistantOverlap, `search vs assistant at ${viewport.width}px`).toBe(false);
+      await expect(page.locator(".hero__links").getByRole("link", { name: "Browse all professionals" })).toBeVisible();
+      await expect(page.locator(".hero__links").getByRole("link", { name: "Explore services" })).toBeVisible();
+      expect(await pageFitsViewport(page), `home at ${viewport.width}px`).toBe(true);
+    }
+  });
+
+  test("desktop homepage hero keeps copy and search to the left of the visual", async ({ page }) => {
+    for (const width of [1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+      const layout = await page.evaluate(() => {
+        const box = (selector: string) => document.querySelector(selector)?.getBoundingClientRect();
+        return {
+          copy: box(".hero__copy"),
+          visual: box(".hero__visual"),
+          search: box(".hero-search"),
+          links: box(".hero__links"),
+        };
+      });
+      expect(layout.copy && layout.visual && layout.search && layout.links, `hero boxes at ${width}px`).toBeTruthy();
+      expect(layout.copy!.right, `copy left of visual at ${width}px`).toBeLessThanOrEqual(layout.visual!.left + 1);
+      expect(layout.search!.right, `search left of visual at ${width}px`).toBeLessThanOrEqual(layout.visual!.left + 1);
+      expect(layout.search!.top, `search under copy at ${width}px`).toBeGreaterThan(layout.copy!.top);
+      expect(layout.links!.top, `links under search at ${width}px`).toBeGreaterThan(layout.search!.top);
+      expect(await pageFitsViewport(page), `home at ${width}px`).toBe(true);
+    }
+  });
 });

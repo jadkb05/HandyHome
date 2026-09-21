@@ -1348,6 +1348,49 @@ fieldset {
   }
 }
 
+@media (max-width: 39.99rem) {
+  .hero {
+    gap: 0;
+  }
+
+  .hero__copy {
+    display: contents;
+  }
+
+  .hero__kicker {
+    order: 1;
+  }
+
+  .hero__title {
+    order: 2;
+  }
+
+  .hero__lead {
+    order: 3;
+  }
+
+  .hero__visual {
+    order: 4;
+    margin-block: var(--space-2) var(--space-5);
+  }
+
+  .hero-search {
+    order: 5;
+  }
+
+  .hero__links {
+    order: 6;
+  }
+}
+
+/* Short phones: keep the Search action clear of the floating assistant. */
+@media (max-width: 39.99rem) and (max-height: 51.25rem) {
+  .hero-search .button {
+    width: calc(100% - 3.25rem - var(--space-4));
+    justify-self: start;
+  }
+}
+
 /* Value band overlaps the hero edge */
 .value-band {
   position: relative;
