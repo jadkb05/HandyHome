@@ -1,0 +1,310 @@
+// HandyHome V1 data baseline — see docs/DATABASE.md
+// Phase 2: domain model, constraints, and migrations.
+// No booking transition engine, auth system, or marketplace UI.
+//
+// Not encoded (open product questions):
+// - final client-approved service taxonomy (OPEN_QUESTIONS T-07; Phase 4 seeds DEMO V1 rows only)
+// - one-review-per-booking uniqueness (Phase 9: UNIQUE Review.bookingId)
+// - payment status enum values (provider not locked) — Phase 8 locks domain `PENDING` / `PAID` only; real PSP remains open (B-10)
+// - cancellation / no-show statuses (B-05)
+//
+// Better Auth owns credential hashes on Account.password.
+// User.passwordHash is optional/legacy from Phase 2 and is not used for login.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  PROFESSIONAL
+}
+
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  APPOINTMENT_SCHEDULED
+  DIAGNOSIS
+  QUOTE_PENDING
+  QUOTE_ACCEPTED
+  INTERVENTION
+  PAYMENT
+  COMPLETED
+  REVIEWED
+  /// Professional declined a REQUESTED booking. Does not occupy the slot index.
+  REJECTED
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  REJECTED
+  ACCEPTED
+  SUPERSEDED
+}
+
+enum DiagnosisStatus {
+  DRAFT
+  COMPLETED
+}
+
+/// Domain payment state only. Not a PSP. No card data.
+enum PaymentStatus {
+  PENDING
+  PAID
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  phone         String?
+  /// Legacy Phase 2 column. Login uses Better Auth Account.password.
+  passwordHash  String?
+  role          UserRole
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+
+  provider       Provider?
+  clientBookings Booking[]  @relation("ClientBookings")
+  reviews        Review[]
+  favorites      Favorite[]
+  sessions       Session[]
+  accounts       Account[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime @db.Timestamptz(3)
+  token     String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
+}
+
+model Provider {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  profession  String
+  description String?
+  experience  String?
+  city        String
+  address     String?
+  latitude    Decimal? @db.Decimal(9, 6)
+  longitude   Decimal? @db.Decimal(9, 6)
+  /// Storage only. Do not present as a public trust badge (B-03 / B-11).
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  services     ProviderService[]
+  availability Availability[]
+  portfolio    PortfolioItem[]
+  bookings     Booking[]
+  reviews      Review[]
+  favoritedBy  Favorite[]
+
+  @@index([city])
+  @@index([address])
+  @@index([latitude, longitude])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  providers ProviderService[]
+  bookings  Booking[]
+}
+
+model ProviderService {
+  providerId String
+  serviceId  String
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@id([providerId, serviceId])
+  @@index([serviceId])
+}
+
+model Availability {
+  id         String   @id @default(cuid())
+  providerId String
+  dayOfWeek  Int
+  startTime  DateTime @db.Time
+  endTime    DateTime @db.Time
+  active     Boolean  @default(true)
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  clientId    String
+  providerId  String
+  serviceId   String
+  /// Canonical appointment instant. Stored as timestamptz (UTC).
+  scheduledAt DateTime?     @db.Timestamptz(3)
+  status      BookingStatus @default(REQUESTED)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+
+  client   User     @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Restrict)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  quotes     Quote[]
+  payment    Payment?
+  review     Review?
+  diagnosis  Diagnosis?
+
+  /// Double-booking: partial unique index in SQL —
+  /// UNIQUE (providerId, scheduledAt) WHERE scheduledAt IS NOT NULL AND status <> REJECTED.
+  /// REJECTED rows keep scheduledAt for history but do not occupy the slot.
+  /// Cancellation (B-05) is not modeled; a CANCELLED status would also need this exclusion.
+  @@index([clientId])
+  @@index([providerId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model Quote {
+  id        String      @id @default(cuid())
+  bookingId String
+  amount    Decimal     @db.Decimal(12, 2)
+  currency  String
+  /// Professional notes shown to the client. Not a line-item invoice.
+  notes     String      @default("")
+  status    QuoteStatus @default(DRAFT)
+  version   Int
+  createdAt DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @db.Timestamptz(3)
+
+  booking  Booking   @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@unique([bookingId, version])
+  @@index([bookingId])
+}
+
+model Diagnosis {
+  id        String          @id @default(cuid())
+  bookingId String          @unique
+  findings  String          @default("")
+  status    DiagnosisStatus @default(DRAFT)
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime        @updatedAt @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  bookingId String        @unique
+  quoteId   String
+  /// Snapshot of the accepted quote amount at payment-record creation.
+  amount    Decimal       @db.Decimal(12, 2)
+  currency  String
+  status    PaymentStatus
+  /// Unused in Phase 8. No PSP. Never store card numbers, CVV, or payment secrets.
+  providerReference String?
+  createdAt DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  quote   Quote   @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique
+  clientId   String
+  providerId String
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  client   User     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([providerId])
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  clientId   String
+  providerId String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  client   User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, providerId])
+  @@index([clientId])
+}
+
+model PortfolioItem {
+  id         String   @id @default(cuid())
+  providerId String
+  mediaKey   String
+  url        String?
+  altText    String?
+  title      String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+}

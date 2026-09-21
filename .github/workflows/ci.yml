@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: handyhome
+          POSTGRES_PASSWORD: handyhome
+          POSTGRES_DB: handyhome
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U handyhome"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # CI-only throwaway values for a disposable service container. Never real secrets.
+    env:
+      DATABASE_URL: postgresql://handyhome:handyhome@localhost:5432/handyhome
+      BETTER_AUTH_SECRET: ci-only-secret-for-disposable-database-0123456789
+      BETTER_AUTH_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npm run typecheck
+      - run: npm run lint
+      # Vitest creates, migrates (migrate deploy) and seeds its own handyhome_test database.
+      - run: npm run test:db
+      - run: npm run build
