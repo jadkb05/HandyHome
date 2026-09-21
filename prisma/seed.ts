@@ -127,7 +127,7 @@ const MARKETPLACE_PROFESSIONALS: SeedProfessional[] = [
   {
     account: DEMO_ACCOUNTS.fatima,
     phone: "+212600000003",
-    image: "/images/professionals/sara.jpg",
+    image: null,
     profession: "Electrician",
     description:
       "Electrical repairs and installations for homes in Gauthier. Outlets, lighting and kitchen electrical work.",

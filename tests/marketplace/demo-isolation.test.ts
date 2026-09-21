@@ -23,5 +23,7 @@ describe("demo marketplace dataset isolation", () => {
     expect(fatima?.name).toBe("Sara Amrani");
     expect(ahmed?.role).toBe("PROFESSIONAL");
     expect(fatima?.role).toBe("PROFESSIONAL");
+    expect(fatima?.image).toBeNull();
+    expect(ahmed?.image).toBeNull();
   });
 });

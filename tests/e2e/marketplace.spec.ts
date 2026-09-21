@@ -6,7 +6,26 @@ test.describe("Phase 4 marketplace", () => {
     await expect(page.getByRole("heading", { name: "Find a professional" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Ahmed El Mansouri/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Sara Amrani/ })).toBeVisible();
+    const saraCard = page.locator("[data-testid^='professional-card-']").filter({ hasText: "Sara Amrani" });
+    await expect(saraCard.locator(".pro-card__fallback")).toHaveText("SA");
+    await expect(saraCard.locator("img.pro-card__image")).toHaveCount(0);
+    await expect(page.locator('img[src*="sara.jpg"]')).toHaveCount(0);
     await expect(page.getByText("E2E Professional")).toHaveCount(0);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/professionals");
+    await expect(saraCard.locator(".pro-card__fallback")).toHaveText("SA");
+    await expect(page.locator('img[src*="sara.jpg"]')).toHaveCount(0);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/professionals");
+    await saraCard.getByRole("link", { name: /Sara Amrani/ }).click();
+    await expect(page.getByRole("heading", { name: "Sara Amrani" })).toBeVisible();
+    await expect(page.locator('img[src*="sara.jpg"]')).toHaveCount(0);
+    await expect(page.getByTestId("profile-services")).toContainText("Electrical");
+    await expect(page.getByTestId("profile-location")).toContainText("Casablanca");
+
+    await page.goto("/professionals");
 
     await page.getByRole("link", { name: /Ahmed El Mansouri/ }).click();
     await expect(page).toHaveURL(/\/professionals\//);
