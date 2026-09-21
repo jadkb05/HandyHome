@@ -23,6 +23,7 @@ export function SearchMap({ markers, selectedId, onSelect }: SearchMapProps) {
   const fallbackUsed = useRef(false);
   const [tileError, setTileError] = useState(false);
   const [initError, setInitError] = useState(false);
+  const [basemapState, setBasemapState] = useState<"loading" | "ready" | "fallback">("loading");
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -63,7 +64,21 @@ export function SearchMap({ markers, selectedId, onSelect }: SearchMapProps) {
         customAttribution: adapter.style.attribution,
       }),
     );
-    map.on("error", () => {
+    map.once("style.load", () => {
+      if (mapRef.current !== map) {
+        return;
+      }
+      const sources = map.getStyle()?.sources ?? {};
+      if (Object.keys(sources).length > 0) {
+        setBasemapState("ready");
+      }
+    });
+    map.on("error", (event) => {
+      // A missing glyph range or one failed tile must not replace a loaded
+      // street map with the empty gray fallback style.
+      if ((event as { tile?: unknown }).tile || (map.isStyleLoaded() && Object.keys(map.getStyle()?.sources ?? {}).length > 0)) {
+        return;
+      }
       if (fallbackUsed.current || mapRef.current !== map) {
         return;
       }
@@ -75,6 +90,7 @@ export function SearchMap({ markers, selectedId, onSelect }: SearchMapProps) {
         return;
       }
       setTileError(true);
+      setBasemapState("fallback");
     });
     mapRef.current = map;
 
@@ -186,6 +202,7 @@ export function SearchMap({ markers, selectedId, onSelect }: SearchMapProps) {
         ref={containerRef}
         className="search-map"
         data-testid="search-map"
+        data-basemap={basemapState}
         role="region"
         aria-label={copy.searchMapLabel}
         hidden={initError}

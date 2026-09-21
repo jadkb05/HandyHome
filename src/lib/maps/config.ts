@@ -8,8 +8,11 @@ import type { MapStyleConfig, MapViewState } from "@/lib/maps/types";
  */
 export const OSM_ATTRIBUTION = "© OpenStreetMap contributors";
 
+/** Official MapLibre-compatible OpenFreeMap style. No API key. */
+export const OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+
 export const mapStyleConfig: MapStyleConfig = {
-  styleUrl: "https://tiles.openfreemap.org/styles/positron",
+  styleUrl: OPENFREEMAP_STYLE_URL,
   attribution: `${OSM_ATTRIBUTION} · © OpenFreeMap`,
   rasterFallback: true,
 };

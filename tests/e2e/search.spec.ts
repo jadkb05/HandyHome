@@ -290,3 +290,52 @@ test.describe("Phase 5 search and map", () => {
     }
   });
 });
+
+test.describe("OpenFreeMap Liberty basemap", () => {
+  test("style and vector tiles initialize without falling back to an empty canvas", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    const openFreeMapUrls: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+      }
+    });
+    page.on("request", (request) => {
+      if (request.url().includes("tiles.openfreemap.org")) {
+        openFreeMapUrls.push(request.url());
+      }
+    });
+
+    await page.goto("/search?city=Casablanca");
+    await expect(page.getByTestId("search-map")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("search-map")).toHaveAttribute("data-basemap", "ready", { timeout: 20_000 });
+    await expect(page.getByText("Map tiles could not be loaded")).toHaveCount(0);
+    await expect(page.locator(".map-attribution")).toContainText("© OpenStreetMap contributors");
+    await expect(page.locator(".map-attribution")).toContainText("OpenFreeMap");
+    await expect(page.locator('[data-testid="map-marker"]').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".maplibregl-canvas")).toBeVisible();
+    expect(openFreeMapUrls.some((url) => url.includes("/styles/liberty"))).toBe(true);
+    expect(openFreeMapUrls.some((url) => !url.includes("/styles/"))).toBe(true);
+
+    const mapErrors = consoleErrors.filter((text) =>
+      /positron|failed to load style|ajaxerror|error loading style|handyhome-fallback/i.test(text),
+    );
+    expect(mapErrors).toEqual([]);
+  });
+
+  test("basemap remains ready on mobile after opening the map", async ({ page }) => {
+    const viewports = [
+      { width: 375, height: 812 },
+      { width: 390, height: 844 },
+    ];
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await page.goto("/search?city=Casablanca");
+      await page.getByRole("button", { name: "Show map" }).click();
+      await expect(page.getByTestId("search-map")).toBeVisible();
+      await expect(page.getByTestId("search-map")).toHaveAttribute("data-basemap", "ready", { timeout: 20_000 });
+      await expect(page.getByText("Map tiles could not be loaded")).toHaveCount(0);
+      expect(await pageFitsViewport(page)).toBe(true);
+    }
+  });
+});

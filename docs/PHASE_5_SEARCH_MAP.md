@@ -128,7 +128,7 @@ Marker click highlights the matching card (and a compact popup). Card click high
 
 Isolated in `src/lib/maps/config.ts`:
 
-- Style: OpenFreeMap Positron (`https://tiles.openfreemap.org/styles/positron`)
+- Style: OpenFreeMap Liberty (`https://tiles.openfreemap.org/styles/liberty`)
 - No API key, no signup, no credit card
 - Default view bounded to the Casablanca metro area (`minZoom` 10, `maxZoom` 16, `maxBounds`) so the demo does not preload the world
 - No bulk tile download, no prefetch of unused regions
