@@ -69,12 +69,23 @@ export function AssistantWidget() {
         aria-controls="assistant-panel"
         onClick={() => setOpen((value) => !value)}
       >
-        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
           <path
-            fill="currentColor"
-            d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-7.2L8 22v-4H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+            d="M3.9 12.6v-1a8.1 8.1 0 0 1 16.2 0v1"
+            fill="none"
+            stroke="#b9c1ce"
+            strokeWidth="1.2"
           />
-          <path fill="var(--color-brand)" d="M12 6.5 7 10.6h1.5V14h7v-3.4H17z" />
+          <rect x="10" y="4.7" width="4" height="2.4" rx="1.1" fill="#d5dae4" />
+          <rect x="10" y="15" width="4" height="3" rx="1" fill="#c5ccd9" />
+          <path d="M5.5 22.6v-2c0-2 1.4-3.3 3.4-3.3h6.2c2 0 3.4 1.3 3.4 3.3v2z" fill="#e6eaf2" />
+          <rect x="4.4" y="6.6" width="15.2" height="10" rx="4.4" fill="#f1f4f9" />
+          <rect x="2.3" y="9.7" width="3" height="5.2" rx="1.3" fill="#c5ccd9" />
+          <rect x="18.7" y="9.7" width="3" height="5.2" rx="1.3" fill="#c5ccd9" />
+          <rect x="5.9" y="8" width="12.2" height="7.1" rx="3" fill="#10222d" />
+          <path d="M7.7 12.3a1.7 1.7 0 0 1 3.4 0z" fill="#6df5ff" />
+          <path d="M12.9 12.3a1.7 1.7 0 0 1 3.4 0z" fill="#6df5ff" />
+          <path d="M10.8 13.3a1.2 1.2 0 0 0 2.4 0z" fill="#6df5ff" />
         </svg>
       </button>
     </div>
