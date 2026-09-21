@@ -8,6 +8,9 @@ import { copy } from "@/content/en";
 import { getMapAdapter } from "@/lib/maps";
 import type { MapMarker } from "@/lib/maps";
 
+// Same-origin worker; see scripts/copy-maplibre-worker.mjs for why the bundled default breaks.
+maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
+
 type SearchMapProps = {
   markers: MapMarker[];
   selectedId: string | null;

@@ -13,6 +13,7 @@ const eslintConfig = defineConfig([
     ".next-qa/**",
     ".next-phase10/**",
     "out/**",
+    "public/maplibre/**",
     "build/**",
     "next-env.d.ts",
     "playwright-report/**",

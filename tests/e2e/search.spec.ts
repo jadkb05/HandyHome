@@ -103,6 +103,18 @@ test.describe("Phase 5 search and map", () => {
     await expect(ahmedCard.getByText("Selected on map")).toBeVisible();
   });
 
+  test("map worker is served from /maplibre so tiles can be decoded (bundler import.meta.url regression)", async ({ page }) => {
+    const workerUrls: string[] = [];
+    page.on("worker", (worker) => workerUrls.push(new URL(worker.url()).pathname));
+    const workerResponse = page.waitForResponse((response) => response.url().endsWith("/maplibre/maplibre-gl-worker.mjs"));
+    await page.goto("/search?city=Casablanca");
+    expect((await workerResponse).status()).toBe(200);
+    await expect(page.locator('[data-testid="map-marker"]').first()).toBeVisible({ timeout: 15_000 });
+    // Without setWorkerUrl MapLibre spawns a worker on the page URL itself and never renders a tile.
+    await expect.poll(() => workerUrls.some((path) => path === "/maplibre/maplibre-gl-worker.mjs")).toBe(true);
+    expect(workerUrls).not.toContain("/search");
+  });
+
   test("PH5-E2E-09: use my location interaction is handled", async ({ page }) => {
     await page.addInitScript(() => {
       const position = {

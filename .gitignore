@@ -22,6 +22,9 @@
 /.next-*/
 /out/
 
+# generated from node_modules by scripts/copy-maplibre-worker.mjs
+/public/maplibre/
+
 # production
 /build
 
