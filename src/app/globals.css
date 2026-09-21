@@ -790,15 +790,9 @@ a {
 
 .field input[type="date"] {
   max-width: 100%;
-  min-height: 2.75rem;
+  min-height: 3rem;
   font-size: 1rem;
   color-scheme: light;
-}
-
-.field-hint {
-  color: var(--color-ink-muted);
-  font-size: var(--text-sm);
-  font-weight: 400;
 }
 
 .field input:hover,
@@ -2181,6 +2175,7 @@ fieldset {
 
 .search-form__actions .button {
   width: 100%;
+  min-height: 3rem;
 }
 
 .geo-control {

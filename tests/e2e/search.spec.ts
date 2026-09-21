@@ -58,7 +58,7 @@ test.describe("Phase 5 search and map", () => {
     await expect(page.getByRole("heading", { name: "Find a professional" })).toBeVisible();
     await expect(page.getByTestId("search-form")).toBeVisible();
     await expect(page.getByLabel("Date")).toBeVisible();
-    await expect(page.getByText("Any date")).toBeVisible();
+    await expect(page.getByText("Any date")).toHaveCount(0);
     await expect(page.getByLabel("Neighborhood")).toHaveCount(0);
     await expect(page.getByText("E2E Professional")).toHaveCount(0);
   });
@@ -250,7 +250,43 @@ test.describe("Phase 5 search and map", () => {
       await expect(page.getByLabel("Date")).toBeVisible();
       await expect(page.getByLabel("Sort")).toBeVisible();
       await expect(page.getByRole("button", { name: "Search" })).toBeVisible();
+      await expect(page.getByText("Any date")).toHaveCount(0);
       expect(await pageFitsViewport(page)).toBe(true);
+    }
+  });
+
+  test("desktop filter labels and inputs share one horizontal grid", async ({ page }) => {
+    for (const width of [1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/search");
+      await expect(page.getByTestId("search-form")).toBeVisible();
+      const alignment = await page.evaluate(() => {
+        const form = document.querySelector("[data-testid='search-form']");
+        if (!form) {
+          return { ok: false };
+        }
+        const fields = [...form.querySelectorAll<HTMLElement>(":scope > .field")];
+        const labels = fields.map((field) => field.querySelector(":scope > span")?.getBoundingClientRect());
+        const controls = fields.map((field) =>
+          field.querySelector(":scope > select, :scope > input")?.getBoundingClientRect(),
+        );
+        const button = form.querySelector(".search-form__actions .button")?.getBoundingClientRect();
+        if (labels.some((box) => !box) || controls.some((box) => !box) || !button) {
+          return { ok: false };
+        }
+        const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+        const labelTops = labels.map((box) => box!.top);
+        const controlTops = controls.map((box) => box!.top);
+        const controlHeights = controls.map((box) => box!.height);
+        return {
+          ok:
+            spread(labelTops) <= 2 &&
+            spread(controlTops) <= 2 &&
+            spread(controlHeights) <= 4 &&
+            Math.abs(button.top - controlTops[0]) <= 4,
+        };
+      });
+      expect(alignment, `filter row at ${width}px`).toEqual({ ok: true });
     }
   });
 });

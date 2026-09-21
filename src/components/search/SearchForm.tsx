@@ -46,12 +46,8 @@ export function SearchForm({ filters, services, cities }: SearchFormProps) {
           defaultValue={filters.date ?? ""}
           min={dates.min}
           max={dates.max}
-          aria-describedby="search-date-hint"
           data-testid="search-date"
         />
-        <span id="search-date-hint" className="field-hint">
-          {copy.searchAnyDate}
-        </span>
       </label>
       <label className="field">
         <span>{copy.searchSort}</span>

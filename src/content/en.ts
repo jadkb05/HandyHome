@@ -153,7 +153,6 @@ export const copy = {
   allServices: "All services",
   searchNeighborhood: "Neighborhood",
   searchDate: "Date",
-  searchAnyDate: "Any date",
   verifiedOnly: "Verified professionals only",
   searchSort: "Sort",
   sortName: "Name",
